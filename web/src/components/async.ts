@@ -1,0 +1,13 @@
+import { defineAsyncComponent } from 'vue'
+
+/** 含 marked + DOMPurify，按需异步加载 */
+export const MarkdownBody = defineAsyncComponent({
+  loader: () => import('@/components/MarkdownBody.vue'),
+  delay: 80
+})
+
+/** 文档预览抽屉，仅详情页使用 */
+export const DocumentPreviewDrawer = defineAsyncComponent({
+  loader: () => import('@/components/DocumentPreviewDrawer.vue'),
+  delay: 0
+})

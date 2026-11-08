@@ -1,0 +1,457 @@
+<template>
+  <div class="page-container chat-page">
+    <PageHeader title="智能对话" subtitle="多轮 RAG 对话，支持历史会话与引用来源">
+      <template #actions>
+        <span class="kb-label">知识库：</span>
+        <KbSelect
+          v-model="kbId"
+          width="200px"
+          :auto-default="false"
+          clearable
+          placeholder="选择知识库"
+        />
+      </template>
+    </PageHeader>
+
+    <div class="chat-layout">
+      <aside v-loading="sessionsLoading" class="session-panel">
+        <div class="panel-header">
+          <span>历史会话</span>
+          <el-button link type="primary" @click="newSession">+ 新对话</el-button>
+        </div>
+        <EmptyState v-if="!sessions.length && !sessionsLoading" variant="chat-sessions" />
+        <div
+          v-for="s in sessions"
+          :key="s.id"
+          :class="['session-item', { active: sessionId === s.id }]"
+          @click="selectSession(s)"
+        >
+          <el-icon class="session-icon"><ChatDotRound /></el-icon>
+          <div class="session-info">
+            <div class="session-title">{{ s.title || '新对话' }}</div>
+            <div class="session-time">{{ formatDateTime(s.updatedAt) }}</div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="chat-main">
+        <div ref="messagesRef" v-loading="messagesLoading" class="messages">
+          <EmptyState
+            v-if="!messages.length && !streaming && !messagesLoading"
+            :variant="sessionId ? 'chat-empty' : 'chat'"
+          />
+          <div v-if="messages.length || streaming" class="date-sep">{{ dateSepLabel }}</div>
+          <div v-for="(m, i) in messages" :key="i" :class="['msg-row', m.role]">
+            <div v-if="m.role === 'assistant'" class="msg-avatar msg-avatar--bot">
+              <el-icon><Cpu /></el-icon>
+            </div>
+            <div :class="['msg-bubble', m.role]">
+              <MarkdownBody v-if="m.role === 'assistant'" :content="m.content" />
+              <div v-else class="msg-text">{{ m.content }}</div>
+              <SourceList
+                :sources="m.sources"
+                :kb-id="kbId"
+                @open="openSourcePreview"
+              />
+              <div v-if="m.role === 'user'" class="msg-time">{{ msgTime }}</div>
+            </div>
+            <div v-if="m.role === 'user'" class="msg-avatar msg-avatar--user">
+              <el-icon><User /></el-icon>
+            </div>
+          </div>
+          <div v-if="streaming" class="msg-row assistant">
+            <div class="msg-avatar msg-avatar--bot">
+              <el-icon><Cpu /></el-icon>
+            </div>
+            <div class="msg-bubble assistant is-streaming">
+              <div v-if="retrievalSteps.length && !streamText" class="retrieval-steps">
+                <div v-for="(s, i) in retrievalSteps" :key="i" class="retrieval-steps__item">
+                  <el-icon><Search /></el-icon>
+                  <span>{{ s }}</span>
+                </div>
+                <StreamingIndicator text="分析检索结果..." />
+              </div>
+              <MarkdownBody v-if="streamText" :content="streamText" />
+              <div v-if="!streamText && !retrievalSteps.length">
+                <StreamingIndicator text="思考中..." />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input">
+          <el-input
+            v-model="input"
+            type="textarea"
+            :rows="2"
+            placeholder="输入消息，Enter 发送"
+            :disabled="streaming"
+            @keydown.enter.exact.prevent="send"
+          />
+          <el-button type="primary" :loading="streaming" :disabled="!input.trim()" @click="send">
+            <el-icon class="btn-icon"><Promotion /></el-icon>
+            发送
+          </el-button>
+        </div>
+      </main>
+    </div>
+
+    <DocumentPreviewDrawer
+      v-model:visible="previewVisible"
+      :kb-id="kbId!"
+      :doc-id="previewDocId"
+      :highlight-chunk-id="previewChunkId"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
+import { streamChat, type StreamDoneMeta } from '@/api'
+import PageHeader from '@/components/PageHeader.vue'
+import KbSelect from '@/components/KbSelect.vue'
+import { MarkdownBody, DocumentPreviewDrawer } from '@/components/async'
+import SourceList from '@/components/SourceList.vue'
+import StreamingIndicator from '@/components/StreamingIndicator.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { formatDateTime } from '@/utils/format'
+import {
+  type ChatMessage,
+  type ChatSession,
+  useChatMessagesQuery,
+  useChatSessionsQuery
+} from '@/composables/queries/useChat'
+import { queryKeys } from '@/lib/query-keys'
+import { ElMessage } from 'element-plus'
+import { ChatDotRound, Cpu, Promotion, User } from '@element-plus/icons-vue'
+
+const queryClient = useQueryClient()
+const { data: sessionsData, isLoading: sessionsLoading } = useChatSessionsQuery()
+
+let streamAbort: AbortController | null = null
+let lastUserMsgIndex = 0
+onBeforeUnmount(() => {
+  streamAbort?.abort()
+})
+
+const sessions = computed(() => sessionsData.value || [])
+const kbId = ref<number>()
+const sessionId = ref<number>()
+const previewVisible = ref(false)
+const previewDocId = ref<number>()
+const previewChunkId = ref<number>()
+const messages = ref<ChatMessage[]>([])
+const input = ref('')
+const streaming = ref(false)
+const streamText = ref('')
+const retrievalSteps = ref<string[]>([])
+const pendingSources = ref<ChatMessage['sources']>([])
+const messagesRef = ref<HTMLElement>()
+const skipMessagesSync = ref(false)
+
+const { data: sessionMessages, isLoading: messagesLoading } = useChatMessagesQuery(sessionId)
+
+const dateSepLabel = computed(() => {
+  const now = new Date()
+  return `今天 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+})
+const msgTime = computed(() => dateSepLabel.value.replace('今天 ', ''))
+
+watch(sessionMessages, data => {
+  if (skipMessagesSync.value || streaming.value) return
+  if (data) messages.value = [...data]
+})
+
+function scrollToBottom() {
+  nextTick(() => {
+    const el = messagesRef.value
+    if (el) el.scrollTop = el.scrollHeight
+  })
+}
+
+function newSession() {
+  skipMessagesSync.value = true
+  sessionId.value = undefined
+  messages.value = []
+  nextTick(() => {
+    skipMessagesSync.value = false
+  })
+}
+
+function selectSession(session: ChatSession) {
+  skipMessagesSync.value = false
+  sessionId.value = session.id
+  if (session.kbId) kbId.value = session.kbId
+}
+
+function openSourcePreview(payload: { kbId: number; documentId: number; chunkId?: number }) {
+  if (!kbId.value) kbId.value = payload.kbId
+  previewDocId.value = payload.documentId
+  previewChunkId.value = payload.chunkId
+  previewVisible.value = true
+}
+
+async function send() {
+  if (!input.value.trim() || streaming.value) return
+
+  const text = input.value
+  skipMessagesSync.value = true
+  messages.value.push({ role: 'user', content: text })
+  lastUserMsgIndex = messages.value.length - 1
+  input.value = ''
+  streaming.value = true
+  streamText.value = ''
+  retrievalSteps.value = []
+  pendingSources.value = []
+  scrollToBottom()
+
+  try {
+    streamAbort = new AbortController()
+    await streamChat(
+      { sessionId: sessionId.value, kbId: kbId.value, message: text },
+      chunk => {
+        streamText.value += chunk
+        scrollToBottom()
+      },
+      (meta?: StreamDoneMeta) => {
+        if (meta?.sessionId) sessionId.value = meta.sessionId
+        pendingSources.value = meta?.sources
+      },
+      streamAbort.signal,
+      step => {
+        const modeLabel = step.mode === 'agentic' ? '多路检索' : step.mode === 'refine' ? '补充检索' : '检索'
+        retrievalSteps.value.push(
+          `第 ${step.round} 轮${modeLabel} · ${step.queries.length} 个查询 · 累计 ${step.totalHits} 条候选`
+        )
+        scrollToBottom()
+      }
+    )
+    messages.value.push({
+      role: 'assistant',
+      content: streamText.value,
+      sources: pendingSources.value
+    })
+    await queryClient.invalidateQueries({ queryKey: queryKeys.chat.sessions })
+  } catch (e: unknown) {
+    const errorMsg = e instanceof Error ? e.message : '对话失败'
+    ElMessage.error(errorMsg)
+    // 保持用户消息在列表中（服务端可能已创建会话），标记错误状态
+    messages.value[lastUserMsgIndex] = {
+      role: 'user',
+      content: messages.value[lastUserMsgIndex].content
+    }
+    // 错误气泡持久化进会话，避免 toast 消失后无从得知失败原因
+    messages.value.push({
+      role: 'assistant',
+      content: `⚠️ 回复失败：${errorMsg}（请检查大模型配置与网络连通性后重试）`,
+      sources: []
+    })
+  } finally {
+    streaming.value = false
+    streamText.value = ''
+    skipMessagesSync.value = false
+    scrollToBottom()
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+}
+
+.kb-label {
+  font-size: 13px;
+  color: $fk-text-regular;
+}
+
+.chat-layout {
+  display: flex;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid $fk-border;
+  border-radius: 12px;
+  overflow: hidden;
+  background: $fk-card-bg;
+}
+
+.session-panel {
+  width: 260px;
+  border-right: 1px solid $fk-border;
+  padding: 12px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  background: $fk-card-bg;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: $fk-text-primary;
+}
+
+.session-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-bottom: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid transparent;
+}
+
+.session-item:hover,
+.session-item.active {
+  background: $fk-primary-light;
+  border-color: var(--fk-aside-note-border);
+}
+
+.session-icon {
+  color: $fk-primary;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.session-title {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: $fk-text-primary;
+}
+
+.session-time {
+  font-size: 11px;
+  color: $fk-text-secondary;
+  margin-top: 4px;
+}
+
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: $fk-surface-muted;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.date-sep {
+  text-align: center;
+  font-size: 12px;
+  color: $fk-text-secondary;
+  margin-bottom: 16px;
+}
+
+.msg-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: flex-start;
+}
+
+.msg-row.user {
+  justify-content: flex-end;
+}
+
+.msg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+
+.msg-avatar--user,
+.msg-avatar--bot {
+  background: $fk-primary;
+}
+
+.msg-bubble {
+  max-width: 72%;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.msg-bubble.user {
+  background: var(--fk-chat-user-bg);
+  color: var(--fk-chat-user-text);
+  border-bottom-right-radius: 4px;
+}
+
+.msg-bubble.user .msg-text {
+  color: var(--fk-chat-user-text);
+}
+
+.msg-bubble.assistant {
+  background: $fk-card-bg;
+  border: 1px solid $fk-border;
+  border-bottom-left-radius: 4px;
+}
+
+.msg-bubble.assistant.is-streaming {
+  border-style: dashed;
+  border-color: var(--fk-aside-note-border);
+}
+
+.msg-text {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+
+.msg-time {
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+  text-align: right;
+}
+
+
+
+.chat-input {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 12px 16px;
+  background: $fk-card-bg;
+  border-top: 1px solid $fk-border;
+}
+
+.chat-input .el-textarea {
+  flex: 1;
+}
+
+.btn-icon {
+  margin-right: 4px;
+}
+
+.retrieval-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.retrieval-steps__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--fk-text-secondary);
+}
+</style>

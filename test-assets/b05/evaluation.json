@@ -1,0 +1,39 @@
+{
+  "license": "CC0-1.0; original synthetic course material authored for this project",
+  "documents": [
+    {"key":"requirements","title":"Requirements","text":"Functional requirements specify services and observable system behavior. Nonfunctional requirements constrain quality, including performance and security. 非功能需求规定性能和安全等质量约束。"},
+    {"key":"usecases","title":"Use cases","text":"A use case describes interaction between an actor and a system to reach a goal. 用例描述参与者与系统之间为达成目标而发生的交互。"},
+    {"key":"cohesion","title":"Cohesion","text":"High cohesion keeps closely related responsibilities within one module. 高内聚将密切相关的职责放在同一个模块中。"},
+    {"key":"coupling","title":"Coupling","text":"Low coupling reduces dependencies between modules and limits the propagation of changes."},
+    {"key":"unit","title":"Unit testing","text":"Unit testing verifies small components in isolation, using controlled substitutes for external dependencies."},
+    {"key":"integration","title":"Integration testing","text":"Integration testing checks interactions between assembled components and detects interface mismatches."},
+    {"key":"blackbox","title":"Black box testing","text":"Black box testing derives test cases from specified inputs and outputs without inspecting source code."},
+    {"key":"whitebox","title":"White box testing","text":"White box testing uses program control flow and branch coverage to design test cases."},
+    {"key":"waterfall","title":"Waterfall development","text":"Waterfall development organizes work into sequential phases with explicit handoffs between phases."},
+    {"key":"agile","title":"Agile development","text":"Agile development uses short iterations and frequent customer feedback to adapt plans."},
+    {"key":"risk","title":"Risk management","text":"Risk management identifies uncertain events, estimates likelihood and impact, and plans mitigation."},
+    {"key":"maintenance","title":"Software maintenance","text":"Software maintenance includes corrective, adaptive, perfective, and preventive changes after delivery."}
+  ],
+  "questions": [
+    {"question":"What do functional requirements specify?","expected":"requirements","answerKeywords":["services","behavior"]},
+    {"question":"What does a use case describe?","expected":"usecases","answerKeywords":["interaction","actor","goal"]},
+    {"question":"How does high cohesion organize responsibilities?","expected":"cohesion","answerKeywords":["related","module"]},
+    {"question":"What does low coupling reduce?","expected":"coupling","answerKeywords":["dependencies"]},
+    {"question":"What does unit testing verify?","expected":"unit","answerKeywords":["components","isolation"]},
+    {"question":"What does integration testing check?","expected":"integration","answerKeywords":["interactions","components"]},
+    {"question":"How does black box testing derive test cases?","expected":"blackbox","answerKeywords":["inputs","outputs"]},
+    {"question":"What does white box testing use to design test cases?","expected":"whitebox","answerKeywords":["control flow","branch coverage"]},
+    {"question":"How is waterfall development organized?","expected":"waterfall","answerKeywords":["sequential","phases"]},
+    {"question":"How does agile development adapt plans?","expected":"agile","answerKeywords":["iterations","feedback"]},
+    {"question":"What does risk management estimate?","expected":"risk","answerKeywords":["likelihood","impact"]},
+    {"question":"What changes does software maintenance include?","expected":"maintenance","answerKeywords":["corrective","adaptive","perfective","preventive"]},
+    {"question":"非功能需求有哪些质量约束？","expected":"requirements","answerKeywords":["性能","安全"]},
+    {"question":"用例描述什么交互？","expected":"usecases","answerKeywords":["参与者","系统","目标"]},
+    {"question":"高内聚如何组织模块职责？","expected":"cohesion","answerKeywords":["相关","模块"]},
+    {"question":"Explain mitochondrial respiration","expected":null,"answerKeywords":[]},
+    {"question":"Describe orbital mechanics apogee","expected":null,"answerKeywords":[]},
+    {"question":"Explain culinary sourdough fermentation","expected":null,"answerKeywords":[]},
+    {"question":"Describe marine coral taxonomy","expected":null,"answerKeywords":[]},
+    {"question":"Explain cryptocurrency transaction signatures","expected":null,"answerKeywords":[]}
+  ]
+}

@@ -1,0 +1,55 @@
+# User requirement: project documents and local agent guidance must stay local.
+/docs/
+/AGENTS.md
+
+# Also ignore the protected document names if copied to another directory.
+PRD.md
+*循环文档*.docx
+*项目启动文档*.docx
+
+# Java build output
+**/target/
+*.class
+*.jar
+*.war
+*.log
+
+# Frontend dependencies and build output
+**/node_modules/
+**/dist/
+
+# Local IDE settings
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Runtime data
+/data/
+**/data/uploads/
+apps/server/data/
+
+# Local credentials and configuration; the single-machine example lives in deploy/
+.local/
+.env
+.env.*
+*.local
+apps/server/src/main/resources/application-local.yml
+
+# OS and local tool artifacts
+.DS_Store
+Thumbs.db
+.zcode/
+.local-test/
+gui-test-screenshots/
+test-assets/audit-export-*.csv
+test-assets/e2e-run*.log
+/test-assets/run-e2e-api.ps1
+/test-assets/e2e-results.json
+__pycache__/
+*.pyc
+/test-assets/*-扫描件.pdf
+/test-assets/*-测试.md
+
+# Machine-specific IDEA launch configurations (credentials stay in .local).
+/.run/

@@ -1,0 +1,27 @@
+spring:
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema-mysql.sql
+
+knowledge:
+  bootstrap:
+    initial-password: legacy-test-bootstrap-password
+  security:
+    # 集成测试连续 login 会触发 @RateLimit(10/60s)，测试环境关闭限流
+    rate-limit-enabled: false
+  cache:
+    provider: redis
+  embedding:
+    provider: hash
+  storage:
+    provider: minio
+    minio:
+      endpoint: http://localhost:9000
+      bucket: fast-knowledge
+      access-key: minioadmin
+      secret-key: minioadmin
+      prefix: knowledge/
+  llm:
+    provider: ollama
+    allow-external: false

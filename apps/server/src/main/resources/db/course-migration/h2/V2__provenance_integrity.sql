@@ -1,0 +1,21 @@
+-- Incremental, additive upgrade. Old files may have no stored hash; new uploads always do.
+ALTER TABLE kb_document_version ADD COLUMN sha256 VARCHAR(64);
+ALTER TABLE kb_document_version ADD CONSTRAINT ck_course_version_status CHECK(status IN ('QUEUED','PARSING','READY','FAILED'));
+ALTER TABLE kb_document_version ADD CONSTRAINT ck_course_version_number CHECK(version_number > 0);
+ALTER TABLE kb_document_version ADD CONSTRAINT ck_course_version_size CHECK(file_size >= 0);
+ALTER TABLE kb_document_version ADD CONSTRAINT ck_course_version_hash CHECK(sha256 IS NULL OR REGEXP_LIKE(sha256,'^[0-9a-f]{64}$'));
+ALTER TABLE kb_document_version ADD CONSTRAINT uk_course_version_document UNIQUE(document_id,id);
+ALTER TABLE kb_document ADD CONSTRAINT fk_course_current_version FOREIGN KEY(id,current_version_id) REFERENCES kb_document_version(document_id,id);
+ALTER TABLE kb_document_chunk ADD CONSTRAINT fk_course_chunk_document_version FOREIGN KEY(document_id,version_id) REFERENCES kb_document_version(document_id,id);
+ALTER TABLE kb_document_chunk ADD CONSTRAINT ck_course_chunk_position CHECK(version_id IS NULL OR (chunk_index > 0 AND (page_no IS NULL OR page_no > 0)));
+ALTER TABLE kb_document_chunk ADD CONSTRAINT uk_course_chunk_location UNIQUE(document_id,version_id,id);
+ALTER TABLE kb_index_task ADD CONSTRAINT fk_course_task_document_version FOREIGN KEY(document_id,version_id) REFERENCES kb_document_version(document_id,id);
+ALTER TABLE kb_qa_source ADD CONSTRAINT fk_course_source_document_version FOREIGN KEY(document_id,version_id) REFERENCES kb_document_version(document_id,id);
+ALTER TABLE kb_qa_source ADD CONSTRAINT fk_course_source_chunk_location FOREIGN KEY(document_id,version_id,chunk_id) REFERENCES kb_document_chunk(document_id,version_id,id);
+ALTER TABLE kb_qa_record ADD CONSTRAINT uk_course_qa_owner UNIQUE(user_id,id);
+ALTER TABLE kb_favorite ADD CONSTRAINT fk_course_favorite_owner FOREIGN KEY(user_id,qa_id) REFERENCES kb_qa_record(user_id,id);
+ALTER TABLE kb_feedback ADD CONSTRAINT fk_course_feedback_owner FOREIGN KEY(user_id,qa_id) REFERENCES kb_qa_record(user_id,id);
+CREATE INDEX idx_course_document_created ON kb_document(created_at,id);
+CREATE INDEX idx_course_user_created ON kb_user(created_at,id);
+CREATE INDEX idx_course_qa_created_status ON kb_qa_record(created_at,status);
+CREATE INDEX idx_course_chunk_version ON kb_document_chunk(version_id);

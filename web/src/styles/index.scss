@@ -1,0 +1,96 @@
+@use './theme.scss';
+@use './design-tokens.scss' as *;
+@use './dark-overrides.scss';
+
+$primary: $fk-primary;
+$primary-hover: $fk-primary-hover;
+$primary-light: $fk-primary-light;
+$page-bg: $fk-page-bg;
+$sidebar-bg: $fk-sidebar-bg;
+$text-primary: $fk-text-primary;
+$text-regular: $fk-text-regular;
+$border-color: $fk-border;
+
+:root {
+  --el-color-primary: #{$fk-primary};
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC',
+    'Microsoft YaHei', sans-serif;
+  background: $page-bg;
+  color: $text-primary;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.page-container {
+  padding: 20px 24px;
+  max-width: 1400px;
+}
+
+.course-filters .el-select {
+  min-width: 150px;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+.muted {
+  color: var(--fk-text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand-title {
+  color: $primary;
+  font-weight: 600;
+}
+
+.el-card {
+  border: 1px solid $border-color;
+  border-radius: 12px;
+  background-color: $fk-card-bg;
+  --el-card-bg-color: #{$fk-card-bg};
+  box-shadow: $fk-card-shadow;
+  transition: box-shadow 0.2s ease;
+}
+
+.el-card:hover {
+  box-shadow: 0 12px 32px rgba(64, 158, 255, 0.12);
+}
+
+.el-table {
+  --el-table-header-bg-color: var(--fk-table-header-bg);
+  --el-table-bg-color: #{$fk-card-bg};
+  --el-table-tr-bg-color: #{$fk-card-bg};
+}
+.el-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.el-drawer {
+  --el-drawer-bg-color: #{$fk-card-bg};
+}
+
+.fk-card {
+  border-radius: 12px;
+  border: 1px solid $border-color;
+  background-color: $fk-card-bg;
+  box-shadow: $fk-card-shadow;
+}

@@ -1,0 +1,365 @@
+package com.fast.knowledge.config;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Data
+@Component
+@ConfigurationProperties(prefix = "knowledge")
+public class KnowledgeProperties {
+
+    private Jwt jwt = new Jwt();
+    private Storage storage = new Storage();
+    private Vector vector = new Vector();
+    private Cache cache = new Cache();
+    private Embedding embedding = new Embedding();
+    private Chunk chunk = new Chunk();
+    private Search search = new Search();
+    private Llm llm = new Llm();
+    private Cors cors = new Cors();
+    private Setup setup = new Setup();
+    private Auth auth = new Auth();
+    private Wiki wiki = new Wiki();
+    private Writer writer = new Writer();
+    private Vision vision = new Vision();
+    private ImageGen imageGen = new ImageGen();
+    private Chat chat = new Chat();
+    private QueryRewrite queryRewrite = new QueryRewrite();
+    private Index index = new Index();
+    private Agentic agentic = new Agentic();
+    private Ingest ingest = new Ingest();
+    private Kg kg = new Kg();
+    private Mcp mcp = new Mcp();
+    /**
+     * 发行版：community（默认）| enterprise。
+     * 可用环境变量 KNOWLEDGE_EDITION 覆盖；enterprise profile 默认 enterprise。
+     */
+    private String edition = "community";
+
+    public boolean isEnterprise() {
+        return "enterprise".equalsIgnoreCase(edition != null ? edition.trim() : "");
+    }
+
+    @Data
+    public static class Wiki {
+        private boolean enabled = true;
+        /** false 时 Wiki 页保持 DRAFT，需管理员审核 */
+        private boolean autoPublish = false;
+        /** 章节/制度/目录类问法优先走已发布 Wiki，否则 HYBRID */
+        private boolean queryRouting = true;
+        /** Wiki 维护 Agent（langgraph4j 图编排：增量合并 + Lint 循环 + 变更日志），需企业版 */
+        private Agent agent = new Agent();
+    }
+
+    @Data
+    public static class Agent {
+        /** 默认关闭；开启需叠加企业版门控（EditionGuard） */
+        private boolean enabled = false;
+        /** lint→revise 循环封顶轮数 */
+        private int maxLintIterations = 2;
+        /** LLM 语义 Lint（关闭则仅规则 Lint） */
+        private boolean llmLintEnabled = true;
+    }
+
+    @Data
+    public static class Vision {
+        /** 视觉问答（qwen-vl 系列，云端）；内网纯离线模式不可用 */
+        private boolean enabled = true;
+        private String model = "qwen-vl-plus";
+        /** 单图大小上限（MB） */
+        private int maxImageMb = 10;
+    }
+
+    @Data
+    public static class ImageGen {
+        /** 文生图（wanx 系列，DashScope 原生异步任务 API） */
+        private boolean enabled = true;
+        private String model = "wanx2.1-t2i-turbo";
+        /** 生成尺寸，如 1024*1024 */
+        private String size = "1024*1024";
+        /** 任务轮询超时（秒） */
+        private int pollTimeoutSeconds = 120;
+    }
+
+    @Data
+    public static class Writer {
+        /** 写文档多步编排（大纲→分节→引用→润色），默认走单次生成 */
+        private boolean graphEnabled = false;
+    }
+
+    @Data
+    public static class Auth {
+        private Ldap ldap = new Ldap();
+        private Oidc oidc = new Oidc();
+    }
+
+    @Data
+    public static class Ldap {
+        private boolean enabled = false;
+        private String url = "";
+        private String baseDn = "";
+        /** 如 uid={0},ou=people,dc=example,dc=com */
+        private String userDnPattern = "";
+        private String userSearchBase = "";
+        /** 如 (uid={0}) */
+        private String userSearchFilter = "";
+    }
+
+    @Data
+    public static class Oidc {
+        private boolean enabled = false;
+        private String issuerUri = "";
+        private String clientId = "";
+        private String clientSecret = "";
+        /** 后端回调地址，如 http://localhost:8088/api/auth/oidc/callback */
+        private String redirectUri = "";
+        /** 登录成功后跳转前端，如 http://localhost:8088/login/callback */
+        private String frontendRedirectUri = "";
+        private String scope = "openid profile email";
+    }
+
+    @Data
+    public static class Vector {
+        /** 本地文件向量索引（LocalEmbeddingStore：内存检索 + JSON 持久化） */
+        private Local local = new Local();
+        /** 向量引擎：lucene（默认，HNSW + 段文件落盘）| memory（内存暴力扫描 + JSON 持久化，小规模/测试） */
+        private String engine = "lucene";
+    }
+
+    @Data
+    public static class Local {
+        /** 本地向量索引持久化目录（per-KB JSON 文件） */
+        private String storageDir = "./data/vectors";
+    }
+
+    @Data
+    public static class Cache {
+        /** redis（双层缓存 L2 + 跨实例事件）| caffeine（单机极简，进程内缓存兜底） */
+        private String provider = "caffeine";
+        private L1 l1 = new L1();
+        /** provider=none 时 Caffeine 单机缓存的最大条目数 */
+        private int localMaxSize = 65536;
+    }
+
+    @Data
+    public static class L1 {
+        /** 是否启用本地 Caffeine L1 缓存 */
+        private boolean enabled = true;
+        /** L1 缓存最大条目数 */
+        private int maxSize = 500;
+        /** L1 缓存 TTL（分钟） */
+        private int ttlMinutes = 2;
+    }
+
+    @Data
+    public static class Cors {
+        private String allowedOrigins = "*";
+    }
+
+    @Data
+    public static class Setup {
+        private String instanceName = "Fast Knowledge";
+    }
+
+    @Data
+    public static class Jwt {
+        private String secret;
+        private long expireSeconds = 86400;
+    }
+
+    @Data
+    public static class Storage {
+        /** minio（分布式/已有对象存储）| oss（阿里云对象存储）| local（本地目录，极简单机部署） */
+        private String provider = "local";
+        private Minio minio = new Minio();
+        private Oss oss = new Oss();
+        private LocalStorage local = new LocalStorage();
+    }
+
+    @Data
+    public static class LocalStorage {
+        /** 本地文件存储根目录（provider=local 时生效） */
+        private String baseDir = "./data/files";
+        /** 对象键前缀，与 MinIO/OSS 的 key 形态保持一致，便于换算迁移 */
+        private String prefix = "knowledge/";
+    }
+
+    @Data
+    public static class Oss {
+        /** 如 https://oss-cn-hangzhou.aliyuncs.com */
+        private String endpoint = "https://oss-cn-hangzhou.aliyuncs.com";
+        private String bucket = "fast-knowledge";
+        private String accessKey = "";
+        private String secretKey = "";
+        /** 签名区域，缺省从 endpoint 推断（oss-cn-hangzhou → cn-hangzhou） */
+        private String region = "";
+        /** 对象前缀，如 knowledge/ */
+        private String prefix = "knowledge/";
+    }
+
+    @Data
+    public static class Minio {
+        private String endpoint = "";
+        private String bucket = "";
+        private String accessKey = "";
+        private String secretKey = "";
+        private String region = "";
+        private String prefix = "";
+    }
+
+    @Data
+    public static class Embedding {
+        /** openai（OpenAI 兼容 /v1/embeddings，含 DashScope compatible-mode）| ollama | hash */
+        private String provider = "openai";
+        private String openaiBaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+        private String openaiApiKey = "";
+        private String openaiModel = "text-embedding-v3";
+        /** 向量维度（云端模型各不相同，须与 provider 输出一致） */
+        private int dimension = 1024;
+        private String ollamaUrl = "http://localhost:11434";
+        private String ollamaModel = "nomic-embed-text";
+        /** 是否缓存 query embedding 结果 */
+        private boolean cacheEnabled = true;
+    }
+
+    @Data
+    public static class Chunk {
+        private int size = 512;
+        private int overlap = 50;
+    }
+
+    /**
+     * 摄入增强（WP1 上下文化分块）：入库时用 LLM 为每个 chunk 生成上下文前缀，
+     * 前缀与正文一起向量化以提升跨 chunk 语义检索（Anthropic Contextual Retrieval 思路）。
+     */
+    @Data
+    public static class Ingest {
+        /** 是否启用上下文化分块（默认关；开启后索引用量增加 LLM 调用） */
+        private boolean contextualEnabled = false;
+        /** 单次 LLM 调用批量生成的 chunk 数 */
+        private int contextBatchSize = 8;
+        /** 生成上下文时提供给 LLM 的全文摘录 token 上限 */
+        private int contextDocPreviewChars = 3000;
+        /** WP2 扫描件 OCR：抽取文本过短的 PDF / 图片文档，用视觉模型逐页转 Markdown（默认关） */
+        private boolean ocrEnabled = false;
+        /** 单文档最大解析页数（费用护栏） */
+        private int ocrMaxPages = 50;
+        /** PDF 转图 DPI */
+        private int ocrDpi = 144;
+    }
+
+    @Data
+    public static class Search {
+        private int defaultTopK = 8;
+        private int cacheTtlMinutes = 5;
+        /** 混合检索关键词支路（MySQL FULLTEXT）。H2 等不支持 FULLTEXT 的库置 false，检索退化为纯向量 */
+        private boolean keywordEnabled = true;
+        private Rerank rerank = new Rerank();
+        /** WP4 语义缓存：查询向量近邻命中（余弦 ≥ 阈值）直接返回缓存结果 */
+        private SemanticCache semanticCache = new SemanticCache();
+    }
+
+    @Data
+    public static class SemanticCache {
+        private boolean enabled = true;
+        /** 命中阈值（余弦相似度） */
+        private double threshold = 0.95;
+        /** 每知识库最大语义索引条数（LRU 淘汰） */
+        private int maxEntriesPerKb = 64;
+    }
+
+    @Data
+    public static class Rerank {
+        /** 是否启用检索重排序 */
+        private boolean enabled = false;
+        /** cohere | jina（云端） */
+        private String provider = "cohere";
+        /** 初召回倍数：先取 topK * multiplier，再 rerank 截断 */
+        private int candidateMultiplier = 3;
+        /** 可选最低分过滤 */
+        private Double minScore;
+        private String cohereApiKey = "";
+        private String cohereModel = "rerank-multilingual-v3.0";
+        private String jinaApiKey = "";
+        private String jinaModel = "jina-reranker-v2-base-multilingual";
+    }
+
+    @Data
+    public static class Chat {
+        /** LangChain4j MessageWindowChatMemory 窗口大小（条） */
+        private int memoryWindow = 10;
+    }
+
+    @Data
+    public static class QueryRewrite {
+        /** 是否启用查询改写 */
+        private boolean enabled = true;
+        /** 用于改写的对话历史轮数 */
+        private int historyRounds = 5;
+    }
+
+    /** WP8 MCP Server 配置 */
+    @Data
+    public static class Mcp {
+        /** MCP 端点开关（默认关） */
+        private boolean enabled = false;
+    }
+
+    /** WP7 知识图谱（GraphRAG 轻量版）配置 */
+    @Data
+    public static class Kg {
+        /** 构建与检索扩展总开关（默认关） */
+        private boolean enabled = false;
+        /** 图存储引擎：file（默认，内存图视图 + per-KB JSON 落盘，LightRAG 默认模式同型）| mysql（MySQL 邻接表） */
+        private String storage = "file";
+        /** file 引擎的落盘目录（per-KB 一个 JSON 文件） */
+        private String storageDir = "./data/graphs";
+        /** 单文档抽取实体数上限（LLM 成本护栏） */
+        private int maxEntitiesPerDoc = 20;
+        /** 检索时邻居 chunk 扩展上限 */
+        private int neighborChunkLimit = 8;
+        /** 抽取时提供给 LLM 的全文长度上限（字符） */
+        private int docPreviewChars = 8000;
+        /** WP7.1 双层检索：LLM 派生低层（实体）/高层（主题）关键词扩展实体链接（失败自动退化为子串链接） */
+        private boolean dualLevelEnabled = true;
+        /** WP7.1 PPR 瞬移概率（越大越贴种子实体） */
+        private double pprTeleport = 0.15;
+        /** WP7.1 PPR 扩散后参与证据召回的 top 邻居实体数 */
+        private int pprTopNeighbors = 12;
+    }
+
+    @Data
+    public static class Agentic {
+        /** 复杂问法启用有限多跳拆解检索 */
+        private boolean enabled = true;
+        /** 子查询上限（含原问，实际额外跳数 = maxSubQueries - 1） */
+        private int maxSubQueries = 3;
+        /** 是否用 LLM 拆解子查询；false 则仅启发式拆分 */
+        private boolean llmDecompose = true;
+        /** WP6：检索后 LLM 自评充分性，不充分则补充检索 */
+        private boolean selfCritique = true;
+        /** WP6：最大检索轮数（含首轮） */
+        private int maxRounds = 2;
+    }
+
+    @Data
+    public static class Index {
+        /** 是否启用 Redis Pub/Sub 事件驱动索引（关闭则回退轮询） */
+        private boolean pubsubEnabled = true;
+        /** 最大重试次数 */
+        private int maxRetry = 3;
+    }
+
+    @Data
+    public static class Llm {
+        /** 预设提供商: ollama | deepseek | glm | dashscope | volcengine | openai | custom */
+        private String provider = "ollama";
+        private String baseUrl = "";
+        private String apiKey = "";
+        private String model = "";
+        private int maxTokens = 4096;
+        private double temperature = 0.3;
+        private boolean allowExternal = true;
+    }
+}

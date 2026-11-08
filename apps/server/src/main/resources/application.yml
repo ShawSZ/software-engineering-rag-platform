@@ -1,0 +1,75 @@
+server:
+  port: ${SERVER_PORT:8088}
+  tomcat:
+    # Drain at most the multipart request budget so rejected files receive JSON 422.
+    max-swallow-size: 21MB
+    # Bounded allowance for RFC-encoded filenames up to 255 Unicode code points.
+    max-part-header-size: 8KB
+  servlet:
+    context-path: /
+
+spring:
+  config:
+    import:
+      - classpath:application-db.yml
+      - classpath:application-ai.yml
+      - classpath:application-auth.yml
+      - classpath:application-storage.yml
+  threads:
+    virtual:
+      enabled: true
+  profiles:
+    default: h2
+  mvc:
+    servlet:
+      path: /api
+  web:
+    resources:
+      add-mappings: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+      - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  application:
+    name: fast-knowledge-server
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 21MB
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    call-setters-on-nulls: true
+  global-config:
+    db-config:
+      id-type: auto
+
+springdoc:
+  api-docs:
+    enabled: false
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: false
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+server.error.include-message: never
+server.error.include-stacktrace: never
+server.error.include-binding-errors: never

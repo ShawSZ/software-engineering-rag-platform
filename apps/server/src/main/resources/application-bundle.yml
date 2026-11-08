@@ -1,0 +1,8 @@
+# Static frontend at /; the API keeps exactly one /api prefix in every profile.
+server:
+  servlet:
+    context-path: /
+spring:
+  mvc:
+    servlet:
+      path: /api

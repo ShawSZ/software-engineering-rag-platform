@@ -1,0 +1,94 @@
+package com.fast.knowledge.config;
+
+import jakarta.annotation.PostConstruct;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Component;
+
+import java.util.Set;
+
+/**
+ * 所有课程启动方式均要求本地配置 JWT_SECRET；禁止公开固定回退值。
+ */
+@Component
+public class ProductionConfigValidator {
+
+    private static final Set<String> WEAK_JWT_SECRETS = Set.of(
+            "fast-knowledge-jwt-secret-change-in-production-32chars",
+            "fast-knowledge-docker-jwt-secret-change-me-32c"
+    );
+
+    private static final Set<String> WEAK_MINIO_KEYS = Set.of("minioadmin", "minio", "admin");
+    private static final Set<String> WEAK_DB_PASSWORDS = Set.of("postgres", "password", "admin", "123456");
+
+    private static final int MIN_JWT_SECRET_LENGTH = 32;
+
+    private final KnowledgeProperties properties;
+    private final Environment environment;
+
+    public ProductionConfigValidator(KnowledgeProperties properties, Environment environment) {
+        this.properties = properties;
+        this.environment = environment;
+    }
+
+    @PostConstruct
+    public void validateOnStartup() {
+        validateJwtSecret();
+        if (!"local".equals(properties.getStorage().getProvider())
+                || !"caffeine".equals(properties.getCache().getProvider())) {
+            throw new IllegalStateException("课程运行环境要求本地文件和 Caffeine");
+        }
+        if (isProductionLikeDeploy()) {
+            validateDbPassword();
+            validateMinioCredentials();
+            validatePrivacyMode();
+        }
+    }
+
+    private boolean isProductionLikeDeploy() {
+        String profiles = environment.getProperty("SPRING_PROFILES_ACTIVE", "");
+        return environment.getProperty("JWT_SECRET") != null
+                || environment.getProperty("MINIO_ACCESS_KEY") != null
+                || profiles.contains("enterprise");
+    }
+
+    private void validateDbPassword() {
+        String dbPassword = environment.getProperty("DB_PASSWORD", "");
+        if (WEAK_DB_PASSWORDS.contains(dbPassword.toLowerCase())) {
+            throw new IllegalStateException("DB_PASSWORD 不得使用弱密码，请更换");
+        }
+    }
+
+    private void validateMinioCredentials() {
+        // OSS 模式下不会用到 MinIO 凭据，跳过校验避免默认值误报
+        if (!"minio".equals(properties.getStorage().getProvider())) {
+            return;
+        }
+        String accessKey = properties.getStorage().getMinio().getAccessKey();
+        if (accessKey != null && WEAK_MINIO_KEYS.contains(accessKey.toLowerCase())) {
+            throw new IllegalStateException("生产环境 MinIO ACCESS_KEY 不得使用默认值 minioadmin，请更换");
+        }
+    }
+
+    private void validatePrivacyMode() {
+        if (!properties.getLlm().isAllowExternal()) {
+            // Rerank 仅剩云端实现（Cohere/Jina），纯内网模式下必须关闭
+            if (properties.getSearch().getRerank().isEnabled()) {
+                throw new IllegalStateException(
+                        "allow-external=false 时 Rerank 不可用（仅支持云端 Cohere/Jina），请设置 RERANK_ENABLED=false");
+            }
+        }
+    }
+
+    private void validateJwtSecret() {
+        String secret = properties.getJwt().getSecret();
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("生产环境必须设置 JWT_SECRET 环境变量（≥32 字符）");
+        }
+        if (secret.length() < MIN_JWT_SECRET_LENGTH) {
+            throw new IllegalStateException("JWT_SECRET 长度不足，生产环境要求至少 " + MIN_JWT_SECRET_LENGTH + " 字符");
+        }
+        if (WEAK_JWT_SECRETS.contains(secret)) {
+            throw new IllegalStateException("JWT_SECRET 使用了已知弱默认值，生产环境必须更换");
+        }
+    }
+}

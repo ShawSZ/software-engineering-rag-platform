@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.11</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.fast</groupId>
+    <artifactId>fast-knowledge</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>fast-knowledge</name>
+    <description>Fast Knowledge 快速知识库 Monorepo</description>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <modules>
+        <module>apps/server</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <tika.version>3.3.0</tika.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
+        <lucene.version>9.12.0</lucene.version>
+        <langgraph4j.version>1.8.26</langgraph4j.version>
+        <springdoc.version>2.8.6</springdoc.version>
+        <mybatis-plus.version>3.5.9</mybatis-plus.version>
+        <frontend-maven-plugin.version>1.15.1</frontend-maven-plugin.version>
+        <node.version>v24.22.1</node.version>
+        <npm.version>10.9.2</npm.version>
+        <frontend.dir>${maven.multiModuleProjectDirectory}/web</frontend.dir>
+        <skip.frontend>true</skip.frontend>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>bundle</id>
+            <properties>
+                <skip.frontend>false</skip.frontend>
+            </properties>
+        </profile>
+    </profiles>
+</project>

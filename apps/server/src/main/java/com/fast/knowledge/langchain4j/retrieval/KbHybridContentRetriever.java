@@ -1,0 +1,59 @@
+package com.fast.knowledge.langchain4j.retrieval;
+
+import com.fast.knowledge.langchain4j.KbEmbeddingStore;
+import com.fast.knowledge.model.vo.SearchHitVO;
+import com.fast.knowledge.ai.orchestration.retrieval.RetrievalOrchestrator;
+import dev.langchain4j.data.document.Metadata;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.rag.content.Content;
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.query.Query;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class KbHybridContentRetriever implements ContentRetriever {
+
+    private final Long kbId;
+    private final RetrievalOrchestrator retrievalOrchestrator;
+
+    public KbHybridContentRetriever(Long kbId, RetrievalOrchestrator retrievalOrchestrator) {
+        this.kbId = kbId;
+        this.retrievalOrchestrator = retrievalOrchestrator;
+    }
+
+    @Override
+    public List<Content> retrieve(Query query) {
+        try {
+            // WP6：桥接流式接口注册的检索步骤回调（同线程同步检索，ThreadLocal 可达）
+            return retrievalOrchestrator.retrieve(kbId, query.text(),
+                    com.fast.knowledge.ai.orchestration.retrieval.RetrievalStepBridge.get()).stream()
+                    .map(this::toContent)
+                    .toList();
+        } catch (Exception e) {
+            throw new RuntimeException("知识库检索失败", e);
+        }
+    }
+
+    private Content toContent(SearchHitVO hit) {
+        Map<String, Object> meta = new HashMap<>();
+        meta.put(KbEmbeddingStore.META_KB_ID, kbId);
+        meta.put(KbEmbeddingStore.META_DOC_ID, hit.getDocumentId() != null ? hit.getDocumentId() : 0L);
+        meta.put(KbEmbeddingStore.META_CHUNK_ID, hit.getChunkId() != null ? hit.getChunkId() : 0L);
+        meta.put(KbEmbeddingStore.META_TITLE, hit.getDocumentTitle() != null ? hit.getDocumentTitle() : "");
+        meta.put("score", hit.getScore());
+        if (hit.getDocType() != null) {
+            meta.put("docType", hit.getDocType());
+        }
+        if (hit.getSection() != null) {
+            meta.put("section", hit.getSection());
+        }
+        Metadata metadata = Metadata.from(meta);
+        TextSegment segment = TextSegment.from(
+                "【" + hit.getDocumentTitle() + "】\n" + hit.getContent(),
+                metadata
+        );
+        return Content.from(segment);
+    }
+}
